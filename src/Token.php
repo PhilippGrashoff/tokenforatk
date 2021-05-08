@@ -42,7 +42,8 @@ class Token extends SecondaryModel
                 }
                 //set expiration on insert
                 if (
-                    !$model->get('expires')
+                    !$isUpdate
+                    && !$model->get('expires')
                     && $model->expiresAfterInMinutes > 0
                 ) {
                     $model->set(
@@ -56,7 +57,7 @@ class Token extends SecondaryModel
         //if token is expired do not load but throw exception
         $this->onHook(
             Model::HOOK_AFTER_LOAD,
-            function (Model $model) {
+            function (self $model) {
                 if (
                     $model->get('expires') instanceof \DateTimeInterFace
                     && $model->get('expires') < new \DateTime()
