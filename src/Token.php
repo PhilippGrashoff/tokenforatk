@@ -26,6 +26,8 @@ class Token extends SecondaryModel
     {
         parent::init();
 
+        $this->cryptIdFieldName = 'value';
+
         $this->addField(
             'expires',
             [
@@ -37,8 +39,8 @@ class Token extends SecondaryModel
         $this->onHook(
             Model::HOOK_BEFORE_SAVE,
             function (self $model, $isUpdate) {
-                if (!$model->get('value')) {
-                    $model->setCryptId('value');
+                if(!$isUpdate) {
+                    $model->setCryptId();
                 }
                 //set expiration on insert
                 if (
