@@ -114,4 +114,12 @@ class Token extends SecondaryModel
     {
         return $entity->addSecondaryModelRecord(Token::class, '');
     }
+
+    public function getTokenString(): string
+    {
+        if (!$this->loaded()) {
+            throw new Exception('Token must be loaded in ' . __FUNCTION__);
+        }
+        return $this->get('value');
+    }
 }
