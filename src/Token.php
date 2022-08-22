@@ -2,6 +2,7 @@
 
 namespace tokenforatk;
 
+use Atk4\Data\Exception;
 use Atk4\Data\Model;
 use secondarymodelforatk\SecondaryModel;
 use traitsforatkdata\CryptIdTrait;
@@ -39,7 +40,7 @@ class Token extends SecondaryModel
         $this->onHook(
             Model::HOOK_BEFORE_SAVE,
             function (self $model, $isUpdate) {
-                if(!$isUpdate) {
+                if (!$isUpdate) {
                     $model->setCryptId();
                 }
                 //set expiration on insert
@@ -81,5 +82,36 @@ class Token extends SecondaryModel
         }
 
         return $return;
+    }
+
+    /**
+     * Tries to load a Token for a given Entity. Checks if token is meant for this Entity before returning
+     */
+    public static function loadTokenForEntity(Model $entity, string $tokenString): Token
+    {
+        if (!$entity->loaded()) {
+            throw new Exception('Model must be loaded to check if a token is available for the model');
+        }
+        $token = new static($entity->persistence);
+        $token->tryLoadBy('value', $tokenString);
+        if (
+            !$token->loaded()
+            || $token->get('model_class') !== get_class($entity)
+            || $token->get('model_id') != $entity->getId()
+        ) {
+            throw new UserException(
+                'Das Token für diesen/diese ' . $entity->getModelCaption() . ' konnte nicht gefunden werden'
+            );
+        }
+
+        return $token;
+    }
+
+    /**
+     * Wraps addSecondaryModelRecord() in order to not do anything stupid with value
+     */
+    public static function createTokenForEntity(Model $entity): Token
+    {
+        return $entity->addSecondaryModelRecord(Token::class, '');
     }
 }
