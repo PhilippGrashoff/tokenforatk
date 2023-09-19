@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-namespace tokenforatk;
+namespace PhilippR\Atk4\Token;
 
 use Atk4\Data\Exception;
 use Atk4\Data\Model;

@@ -1,15 +1,12 @@
 <?php declare(strict_types=1);
 
-namespace tokenforatk\tests;
+namespace PhilippR\Atk4\Token\Tests;
 
 use Atk4\Data\Exception;
 use DateTime;
-use PHPUnit\Util\Test;
-use tokenforatk\tests\testclasses\OtherTestModel;
-use tokenforatk\tests\testclasses\TestModel;
-use tokenforatk\Token;
-use traitsforatkdata\UserException;
-use traitsforatkdata\TestCase;
+use PhilippR\Atk4\Token\Tests\testclasses\OtherTestModel;
+use PhilippR\Atk4\Token\Tests\testclasses\TestModel;
+use PhilippR\Atk4\Token\Token;
 
 class TokenTest extends TestCase
 {
