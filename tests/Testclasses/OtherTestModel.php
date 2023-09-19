@@ -1,10 +1,12 @@
-<?php
-namespace PhilippR\Atk4\Token\Tests\testclasses;
+<?php declare(strict_types=1);
 
-use secondarymodelforatk\SecondaryModelRelationTrait;
+namespace PhilippR\Atk4\Token\Tests\Testclasses;
+
+use Atk4\Data\Model;
+use PhilippR\Atk4\SecondaryModel\SecondaryModelRelationTrait;
 use PhilippR\Atk4\Token\Token;
 
-class OtherTestModel extends \Atk4\Data\Model
+class OtherTestModel extends Model
 {
     use SecondaryModelRelationTrait;
 

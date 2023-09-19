@@ -4,10 +4,8 @@ namespace PhilippR\Atk4\Token;
 
 use Atk4\Data\Exception;
 use Atk4\Data\Model;
-use secondarymodelforatk\SecondaryModel;
-use traitsforatkdata\CryptIdTrait;
-use traitsforatkdata\UserException;
-
+use PhilippR\Atk4\ModelTraits\CryptIdTrait;
+use PhilippR\Atk4\SecondaryModel\SecondaryModel;
 
 class Token extends SecondaryModel
 {
@@ -16,43 +14,33 @@ class Token extends SecondaryModel
 
     public $table = 'token';
 
-    //if this is set, on insert the expiry date is automatically set
-    public $expiresAfterInMinutes = 0;
+    /**
+     * @var int if this is set, on insert the expiry date is automatically set
+     */
+    public int $expiresAfterInMinutes = 0;
 
-    //how many chars are used for the token
-    public $tokenLength = 64;
+    /**
+     * @var int how many chars are used for the token
+     */
+    public int $tokenLength = 64;
 
 
     protected function init(): void
     {
         parent::init();
 
-        $this->cryptIdFieldName = 'value';
+        //an optional expiry date for the token
+        $this->addField('expires', ['type' => 'datetime']);
 
-        $this->addField(
-            'expires',
-            [
-                'type' => 'datetime'
-            ]
-        );
+        //in this field, the actual token is stored
+        $this->addCryptIdFieldAndHooks('token');
 
-        //before insert, create token string
+        //set expiration on insert
         $this->onHook(
             Model::HOOK_BEFORE_SAVE,
-            function (self $model, $isUpdate) {
+            function (self $entity, bool $isUpdate) {
                 if (!$isUpdate) {
-                    $model->setCryptId();
-                }
-                //set expiration on insert
-                if (
-                    !$isUpdate
-                    && !$model->get('expires')
-                    && $model->expiresAfterInMinutes > 0
-                ) {
-                    $model->set(
-                        'expires',
-                        (new \DateTime())->modify('+' . $model->expiresAfterInMinutes . ' Minutes')
-                    );
+                    $entity->setExpiresFromDefault();
                 }
             }
         );
@@ -60,19 +48,46 @@ class Token extends SecondaryModel
         //if token is expired do not load but throw exception
         $this->onHook(
             Model::HOOK_AFTER_LOAD,
-            function (self $model) {
-                if (
-                    $model->get('expires') instanceof \DateTimeInterFace
-                    && $model->get('expires') < new \DateTime()
-                ) {
-                    throw new UserException('Das Token ist abgelaufen.');
-                }
+            function (self $entity) {
+                $entity->assertIsNotExpired();
             }
         );
     }
 
+    protected function setExpiresFromDefault(): void
+    {
+        if (
+            !$this->get('expires') //leave option to custom set expires
+            && $this->expiresAfterInMinutes > 0
+        ) {
+            $this->set(
+                'expires',
+                (new \DateTime())->modify('+' . $this->expiresAfterInMinutes . ' Minutes')
+            );
+        }
+    }
+
+    /**
+     * @return void
+     * @throws Exception
+     */
+    protected function assertIsNotExpired(): void
+    {
+        if (
+            $this->get('expires') instanceof \DateTimeInterFace
+            && $this->get('expires') < new \DateTime()
+        ) {
+            throw new Exception(
+                'The token is expired, it expired at ' . $this->get('expires')->format(DATE_ATOM)
+            );
+        }
+    }
+
     /**
      * returns a long random token, $this->tokenLength long
+     *
+     * @return string
+     * @throws \Exception
      */
     protected function generateCryptId(): string
     {
@@ -86,21 +101,24 @@ class Token extends SecondaryModel
 
     /**
      * Tries to load a Token for a given Entity. Checks if token is meant for this Entity before returning
+     *
+     * @param Model $entity
+     * @param string $tokenString
+     * @return Token
+     * @throws Exception
      */
     public static function loadTokenForEntity(Model $entity, string $tokenString): Token
     {
-        if (!$entity->loaded()) {
-            throw new Exception('Model must be loaded to check if a token is available for the model');
-        }
-        $token = new static($entity->persistence);
-        $token->tryLoadBy('value', $tokenString);
+        $entity->assertIsLoaded();
+        $token = new static($entity->getPersistence());
+        $token = $token->tryLoadBy('token', $tokenString);
         if (
-            !$token->loaded()
+            $token === null
             || $token->get('model_class') !== get_class($entity)
             || $token->get('model_id') != $entity->getId()
         ) {
-            throw new UserException(
-                'Das Token für diesen/diese ' . $entity->getModelCaption() . ' konnte nicht gefunden werden'
+            throw new Exception(
+                'The token for this ' . $entity->getModelCaption() . ' could not be found.'
             );
         }
 
@@ -108,18 +126,20 @@ class Token extends SecondaryModel
     }
 
     /**
-     * Wraps addSecondaryModelRecord() in order to not do anything stupid with value
+     * Create a token for any given entity. Sets model_class and model_id of the token to the according entity values.
+     *
+     * @param Model $entity
+     * @return Token
+     * @throws Exception
+     * @throws \Atk4\Core\Exception
      */
     public static function createTokenForEntity(Model $entity): Token
     {
-        return $entity->addSecondaryModelRecord(Token::class, '');
-    }
+        $entity->assertIsEntity();
+        $token = (new static($entity->getPersistence()))->createEntity();
+        $token->setParentEntity($entity);
+        $token->save();
 
-    public function getTokenString(): string
-    {
-        if (!$this->loaded()) {
-            throw new Exception('Token must be loaded in ' . __FUNCTION__);
-        }
-        return $this->get('value');
+        return $token;
     }
 }

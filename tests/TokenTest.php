@@ -3,85 +3,84 @@
 namespace PhilippR\Atk4\Token\Tests;
 
 use Atk4\Data\Exception;
+use Atk4\Data\Persistence\Sql;
+use Atk4\Data\Schema\TestCase;
 use DateTime;
-use PhilippR\Atk4\Token\Tests\testclasses\OtherTestModel;
-use PhilippR\Atk4\Token\Tests\testclasses\TestModel;
+use PhilippR\Atk4\Token\Tests\Testclasses\OtherTestModel;
+use PhilippR\Atk4\Token\Tests\Testclasses\TestModel;
 use PhilippR\Atk4\Token\Token;
 
 class TokenTest extends TestCase
 {
 
-    protected $sqlitePersistenceModels = [
-        Token::class,
-        TestModel::class,
-        OtherTestModel::class
-    ];
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->db = new Sql('sqlite::memory:');
+        $this->createMigrator(new Token($this->db))->create();
+        $this->createMigrator(new TestModel($this->db))->create();
+        $this->createMigrator(new OtherTestModel($this->db))->create();
+    }
 
     public function testTokenLength(): void
     {
-        $persistence = $this->getSqliteTestPersistence();
-        $t = new Token($persistence);
-        $t->save();
+        $token = (new Token($this->db))->createEntity();
+        $token->save();
         self::assertEquals(
             64,
-            strlen($t->get('value'))
+            strlen($token->get('token'))
         );
 
-        $t = new Token($persistence, ['tokenLength' => 128]);
-        $t->save();
+        $token = (new Token($this->db, ['tokenLength' => 128]))->createEntity();
+        $token->save();
         self::assertEquals(
             128,
-            strlen($t->get('value'))
+            strlen($token->get('token'))
         );
     }
 
     public function testSetExpires(): void
     {
-        $persistence = $this->getSqliteTestPersistence();
-        $t = new Token($persistence, ['expiresAfterInMinutes' => 180]);
-        $t->save();
+        $token = (new Token($this->db, ['expiresAfterInMinutes' => 180]))->createEntity();
+        $token->save();
         self::assertEquals(
             (new DateTime())->modify('+180 Minutes')->format('Ymd Hi'),
-            $t->get('expires')->format('Ymd Hi')
+            $token->get('expires')->format('Ymd Hi')
         );
     }
 
     public function testExceptionLoadExpired(): void
     {
-        $persistence = $this->getSqliteTestPersistence();
-        $t = new Token($persistence);
-        $t->reload_after_save = false;
-        $t->set('expires', (new DateTime())->modify('-1 Minutes'));
-        $t->save();
+        $token = (new Token($this->db))->createEntity();
+        $token->set('expires', (new DateTime())->modify('-1 Minutes'));
+        $token->save();
 
-        self::expectException(UserException::class);
-        $t->reload();
+        self::expectException(Exception::class);
+        self::expectExceptionMessage('The Token expired');
+        $token->reload();
     }
 
     public function testLoadTokenForEntity(): void
     {
-        $persistence = $this->getSqliteTestPersistence();
-        $testModelEntity = new TestModel($persistence);
+        $testModelEntity = (new TestModel($this->db))->createEntity();
         $testModelEntity->save();
-        $t = $testModelEntity->addSecondaryModelRecord(Token::class, '');
+        $t = $testModelEntity->addSecondaryModelRecord(Token::class, []);
         self::assertSame($testModelEntity->getId(), $t->get('model_id'));
 
-        $t2 = Token::loadTokenForEntity($testModelEntity, $t->get('value'));
+        $t2 = Token::loadTokenForEntity($testModelEntity, $t->get('token'));
         self::assertSame($t->getId(), $t2->getId());
     }
 
-    public function testLoadTokenForEntityExceptionEntityNotLoaded()
+    public function testLoadTokenForEntityExceptionEntityNotLoaded(): void
     {
-        $persistence = $this->getSqliteTestPersistence();
-        $testModel = new TestModel($persistence);
+        $testModel = (new TestModel($this->db))->createEntity();
         self::expectException(Exception::class);
         Token::loadTokenForEntity($testModel, '12345');
     }
 
     public function testLoadTokenForEntityExceptionTokenNotFound()
     {
-        $persistence = $this->getSqliteTestPersistence();
-        $testModelEntity = new TestModel($persistence);
+        $testModelEntity = (new TestModel($this->db))->createEntity();
         $testModelEntity->save();
         self::expectException(UserException::class);
         Token::loadTokenForEntity($testModelEntity, '12345');
@@ -89,66 +88,45 @@ class TokenTest extends TestCase
 
     public function testLoadTokenForEntityExceptionWrongEntityClass(): void
     {
-        $persistence = $this->getSqliteTestPersistence();
-        $testModelEntity = new TestModel($persistence);
+        $testModelEntity = (new TestModel($this->db))->createEntity();
         $testModelEntity->save();
         $t = $testModelEntity->addSecondaryModelRecord(Token::class, '');
 
-        $otherTestModelEntity = new OtherTestModel($persistence);
+        $otherTestModelEntity = new OtherTestModel($this->db);
         $otherTestModelEntity->save();
         self::expectException(UserException::class);
-        Token::loadTokenForEntity($otherTestModelEntity, $t->get('value'));
+        Token::loadTokenForEntity($otherTestModelEntity, $t->get('token'));
     }
 
     public function testLoadTokenForEntityExceptionWrongEntityId(): void
     {
-        $persistence = $this->getSqliteTestPersistence();
-        $testModelEntity = new TestModel($persistence);
+        $testModelEntity = (new TestModel($this->db))->createEntity();
         $testModelEntity->save();
         $t = $testModelEntity->addSecondaryModelRecord(Token::class, '');
 
-        $testModelEntity2 = new TestModel($persistence);
+        $testModelEntity2 = (new TestModel($this->db))->createEntity();
         $testModelEntity2->save();
         self::expectException(UserException::class);
-        Token::loadTokenForEntity($testModelEntity2, $t->get('value'));
+        Token::loadTokenForEntity($testModelEntity2, $t->get('token'));
     }
 
     public function testCreateTokenForEntity(): void
     {
-        $persistence = $this->getSqliteTestPersistence();
-        $testModelEntity = new TestModel($persistence);
+        $testModelEntity = (new TestModel($this->db))->createEntity();
         $testModelEntity->save();
         $token = Token::createTokenForEntity($testModelEntity);
-        self::assertSame(64, strlen($token->get('value')));
+        self::assertSame(64, strlen($token->get('token')));
         self::assertSame($testModelEntity->getId(), $token->get('model_id'));
         self::assertSame(TestModel::class, $token->get('model_class'));
     }
 
     public function testGetTokenForEntity(): void
     {
-        $persistence = $this->getSqliteTestPersistence();
-        $testModelEntity = new TestModel($persistence);
+        $testModelEntity = (new TestModel($this->db))->createEntity();
         $testModelEntity->save();
         $token = Token::createTokenForEntity($testModelEntity);
-        self::assertSame(64, strlen($token->get('value')));
+        self::assertSame(64, strlen($token->get('token')));
         self::assertSame($testModelEntity->getId(), $token->get('model_id'));
         self::assertSame(TestModel::class, $token->get('model_class'));
-    }
-
-    public function testGetTokenString(): void
-    {
-        $persistence = $this->getSqliteTestPersistence();
-        $token = new Token($persistence);
-        $token->save();
-        self::assertSame(64, strlen($token->getTokenString()));
-        self::assertSame($token->get('value'), $token->getTokenString());
-    }
-
-    public function testGetTokenStringExceptionThisNotLoaded(): void
-    {
-        $persistence = $this->getSqliteTestPersistence();
-        $token = new Token($persistence);
-        self::expectException(Exception::class);
-        $token->getTokenString();
     }
 }
