@@ -56,7 +56,7 @@ class TokenTest extends TestCase
         $token->save();
 
         self::expectException(Exception::class);
-        self::expectExceptionMessage('The Token expired');
+        self::expectExceptionMessage('The token is expired');
         $token->reload();
     }
 
@@ -75,14 +75,16 @@ class TokenTest extends TestCase
     {
         $testModel = (new TestModel($this->db))->createEntity();
         self::expectException(Exception::class);
+        self::expectExceptionMessage('Expected loaded entity');
         Token::loadTokenForEntity($testModel, '12345');
     }
 
-    public function testLoadTokenForEntityExceptionTokenNotFound()
+    public function testLoadTokenForEntityExceptionTokenNotFound(): void
     {
         $testModelEntity = (new TestModel($this->db))->createEntity();
         $testModelEntity->save();
-        self::expectException(UserException::class);
+        self::expectException(Exception::class);
+        self::expectExceptionMessage('The token for this entity could not be found');
         Token::loadTokenForEntity($testModelEntity, '12345');
     }
 
@@ -90,11 +92,12 @@ class TokenTest extends TestCase
     {
         $testModelEntity = (new TestModel($this->db))->createEntity();
         $testModelEntity->save();
-        $t = $testModelEntity->addSecondaryModelRecord(Token::class, '');
+        $t = $testModelEntity->addSecondaryModelRecord(Token::class, []);
 
-        $otherTestModelEntity = new OtherTestModel($this->db);
+        $otherTestModelEntity = (new OtherTestModel($this->db))->createEntity();
         $otherTestModelEntity->save();
-        self::expectException(UserException::class);
+        self::expectException(Exception::class);
+        self::expectExceptionMessage('The token for this entity could not be found');
         Token::loadTokenForEntity($otherTestModelEntity, $t->get('token'));
     }
 
@@ -102,11 +105,12 @@ class TokenTest extends TestCase
     {
         $testModelEntity = (new TestModel($this->db))->createEntity();
         $testModelEntity->save();
-        $t = $testModelEntity->addSecondaryModelRecord(Token::class, '');
+        $t = $testModelEntity->addSecondaryModelRecord(Token::class, []);
 
         $testModelEntity2 = (new TestModel($this->db))->createEntity();
         $testModelEntity2->save();
-        self::expectException(UserException::class);
+        self::expectException(Exception::class);
+        self::expectExceptionMessage('The token for this entity could not be found');
         Token::loadTokenForEntity($testModelEntity2, $t->get('token'));
     }
 

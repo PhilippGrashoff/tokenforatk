@@ -4,6 +4,7 @@ namespace PhilippR\Atk4\Token;
 
 use Atk4\Data\Exception;
 use Atk4\Data\Model;
+use DateTime;
 use PhilippR\Atk4\ModelTraits\CryptIdTrait;
 use PhilippR\Atk4\SecondaryModel\SecondaryModel;
 
@@ -54,6 +55,10 @@ class Token extends SecondaryModel
         );
     }
 
+    /**
+     * @throws \Atk4\Core\Exception
+     * @throws Exception
+     */
     protected function setExpiresFromDefault(): void
     {
         if (
@@ -62,7 +67,7 @@ class Token extends SecondaryModel
         ) {
             $this->set(
                 'expires',
-                (new \DateTime())->modify('+' . $this->expiresAfterInMinutes . ' Minutes')
+                (new DateTime())->modify('+' . $this->expiresAfterInMinutes . ' Minutes')
             );
         }
     }
@@ -75,7 +80,7 @@ class Token extends SecondaryModel
     {
         if (
             $this->get('expires') instanceof \DateTimeInterFace
-            && $this->get('expires') < new \DateTime()
+            && $this->get('expires') < new DateTime()
         ) {
             throw new Exception(
                 'The token is expired, it expired at ' . $this->get('expires')->format(DATE_ATOM)
@@ -118,7 +123,7 @@ class Token extends SecondaryModel
             || $token->get('model_id') != $entity->getId()
         ) {
             throw new Exception(
-                'The token for this ' . $entity->getModelCaption() . ' could not be found.'
+                'The token for this entity could not be found.'
             );
         }
 
