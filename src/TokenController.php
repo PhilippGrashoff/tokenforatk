@@ -9,7 +9,7 @@ use Atk4\Data\Persistence;
 class TokenController
 {
 
-    protected static $tokenClass = Token::class;
+    protected static string $tokenClass = Token::class;
 
     /**
      * Tries to load a Token for a given Entity. Checks if token is meant for this Entity before returning
