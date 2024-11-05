@@ -30,6 +30,7 @@ class Token extends SecondaryModel
     {
         parent::init();
 
+        $this->addField('name');
         //an optional expiry date for the token
         $this->addField('expires', ['type' => 'datetime']);
 
@@ -82,8 +83,9 @@ class Token extends SecondaryModel
             $this->get('expires') instanceof \DateTimeInterFace
             && $this->get('expires') < new DateTime()
         ) {
-            throw new Exception(
-                'The token is expired, it expired at ' . $this->get('expires')->format(DATE_ATOM)
+            throw new TokenException(
+                'The token is expired, it expired at ' . $this->get('expires')->format(DATE_ATOM),
+                403
             );
         }
     }
@@ -102,49 +104,5 @@ class Token extends SecondaryModel
         }
 
         return $return;
-    }
-
-    /**
-     * Tries to load a Token for a given Entity. Checks if token is meant for this Entity before returning
-     *
-     * @param Model $entity
-     * @param string $tokenString
-     * @return Token
-     * @throws Exception
-     */
-    public static function loadTokenForEntity(Model $entity, string $tokenString): Token
-    {
-        $entity->assertIsLoaded();
-        $token = new static($entity->getPersistence());
-        $token = $token->tryLoadBy('token', $tokenString);
-        if (
-            $token === null
-            || $token->get('model_class') !== get_class($entity)
-            || $token->get('model_id') != $entity->getId()
-        ) {
-            throw new Exception(
-                'The token for this entity could not be found.'
-            );
-        }
-
-        return $token;
-    }
-
-    /**
-     * Create a token for any given entity. Sets model_class and model_id of the token to the according entity values.
-     *
-     * @param Model $entity
-     * @return Token
-     * @throws Exception
-     * @throws \Atk4\Core\Exception
-     */
-    public static function createTokenForEntity(Model $entity): Token
-    {
-        $entity->assertIsEntity();
-        $token = (new static($entity->getPersistence()))->createEntity();
-        $token->setParentEntity($entity);
-        $token->save();
-
-        return $token;
     }
 }
